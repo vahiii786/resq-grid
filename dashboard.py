@@ -1,4 +1,4 @@
-# dashboard.py - ResQ-Grid Command Interface (Connected to Render Cloud)
+# dashboard.py - ResQ-Grid Command Interface (Smart Auto-Centering Edition)
 import streamlit as st
 import folium
 import requests
@@ -161,7 +161,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Helpers: City Search & Satellite Weather Fetch
+# 3. Helpers: Geocoding & Satellite Weather
 def get_coordinates(query: str):
     url = f"https://nominatim.openstreetmap.org/search?q={query},India&format=json&limit=1"
     headers = {"User-Agent": "ResQGrid-TacticalEngine"}
@@ -187,7 +187,7 @@ def fetch_satellite_rain(lat: float, lon: float):
     except Exception:
         return 0.0
 
-# Fetch Live SOS Alerts from Render Cloud Server
+# Fetch Live SOS Alerts from Cloud Server
 sos_list = []
 try:
     sos_res = requests.get(f"{API_BASE_URL}/all-sos", timeout=10).json()
@@ -263,7 +263,7 @@ st.sidebar.markdown("### 📍 SELECT LOCATION")
 search_area = st.sidebar.text_input("Search City / Town", value="Vijayawada")
 target = get_coordinates(search_area)
 
-st.sidebar.caption(f"Area: `{target['name']}` | GPS: `{target['lat']:.4f}, {target['lng']:.4f}`")
+st.sidebar.caption(f"Sector Baseline: `{target['name']}` | `{target['lat']:.4f}, {target['lng']:.4f}`")
 st.sidebar.markdown("---")
 
 # Weather Data Selection
@@ -326,43 +326,66 @@ if st.sidebar.button(f"Send Mock SOS in {target['name']}", use_container_width=T
     except Exception:
         st.sidebar.error("Could not send SOS alert.")
 
-# 7. Main Split Layout
+# 7. Main Split Layout with Smart Auto-Centering Map
 col_radar, col_queue = st.columns([7, 4])
 
 with col_radar:
-    st.markdown(f"#### 🗺️ LIVE FLOOD MAP — `{target['name'].upper()}`", unsafe_allow_html=True)
-    
+    # Check if SOS beacons exist to center map dynamically on the incident
+    if sos_list:
+        latest_sos = sos_list[-1]
+        map_lat = latest_sos["location"]["lat"]
+        map_lng = latest_sos["location"]["lng"]
+        map_zoom = 15
+        st.markdown(f"#### 🗺️ LIVE INCIDENT RADAR — `FOCUSED ON ACTIVE SOS`", unsafe_allow_html=True)
+    else:
+        map_lat = target["lat"]
+        map_lng = target["lng"]
+        map_zoom = 13
+        st.markdown(f"#### 🗺️ LIVE FLOOD MAP — `{target['name'].upper()}`", unsafe_allow_html=True)
+
     radar_map = folium.Map(
-        location=[target["lat"], target["lng"]], 
-        zoom_start=13,
+        location=[map_lat, map_lng], 
+        zoom_start=map_zoom,
         max_zoom=19,
         tiles="OpenStreetMap"
     )
 
-    # Danger Zone Perimeter
+    # Perimeter Circle around focus
     folium.Circle(
-        location=[target["lat"], target["lng"]],
-        radius=4000,
+        location=[map_lat, map_lng],
+        radius=2500,
         color="#ff003c",
-        weight=3,
+        weight=2,
         fill=True,
         fill_color="#ff003c",
-        fill_opacity=0.35,
-        tooltip=f"High Risk Flood Zone: {target['name']}"
+        fill_opacity=0.2,
+        tooltip="Active Danger Perimeter"
     ).add_to(radar_map)
 
-    # Plot SOS pins
+    # Plot all SOS beacons
     for item in sos_list:
         loc = [item["location"]["lat"], item["location"]["lng"]]
         user = item.get("user", "Unknown")
         count = item.get("people", 1)
         med = item.get("medical_urgent", False)
         
+        # High visibility marker
         folium.Marker(
             location=loc,
             tooltip=f"🚨 SOS: {user}",
-            popup=f"Trapped: {count} people | Medical Urgent: {med}",
-            icon=folium.Icon(color="red" if med else "orange", icon="exclamation-sign")
+            popup=f"<b>{user}</b><br>Trapped: {count}<br>Medical Emergency: {med}<br>GPS: {loc[0]:.5f}, {loc[1]:.5f}",
+            icon=folium.Icon(color="red" if med else "orange", icon="warning-sign" if med else "user")
+        ).add_to(radar_map)
+        
+        # Glowing radar ring around pin
+        folium.CircleMarker(
+            location=loc,
+            radius=16,
+            color="#ff003c",
+            weight=3,
+            fill=True,
+            fill_color="#ff003c",
+            fill_opacity=0.45
         ).add_to(radar_map)
 
     components.html(radar_map._repr_html_(), height=550)
@@ -383,7 +406,7 @@ with col_queue:
                 </div>
                 <div style="font-size: 12px; margin: 4px 0;" class="mono-text">{urgent_badge}</div>
                 <div style="font-size: 13px; color: #94a3b8;" class="mono-text">
-                    People: <b style="color:#f8fafc;">{alert.get('people')}</b> | Location: <code>{alert['location']['lat']:.4f}, {alert['location']['lng']:.4f}</code>
+                    People: <b style="color:#f8fafc;">{alert.get('people')}</b> | GPS: <code>{alert['location']['lat']:.5f}, {alert['location']['lng']:.5f}</code>
                 </div>
             </div>
             """, unsafe_allow_html=True)
