@@ -1,4 +1,4 @@
-# dashboard.py - ResQ-Grid Command Interface (With Instant Popup Notification)
+# dashboard.py - ResQ-Grid Command Interface (Full Priority Sync & All Features Restored)
 import streamlit as st
 import folium
 import requests
@@ -120,7 +120,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Helpers
+# 3. Helpers: Nominatim Search, Reverse Geocoding & Weather Telemetry
 @st.cache_data(ttl=3600)
 def get_coordinates(query: str):
     url = f"https://nominatim.openstreetmap.org/search?q={query},India&format=json&limit=1"
@@ -166,7 +166,7 @@ def fetch_satellite_rain(lat: float, lon: float):
     except Exception:
         return 0.0
 
-# Fetch Live SOS Alerts
+# Fetch Live SOS Alerts for Initial Map Load
 sos_list = []
 try:
     sos_res = requests.get(f"{API_BASE_URL}/all-sos", timeout=4).json()
@@ -214,10 +214,11 @@ with k4:
 
 st.write("")
 
-# 6. Sidebar Controls
+# 6. Sidebar Controls (All Features Intact + City Search Sync)
 st.sidebar.markdown("### 📍 SELECT LOCATION")
 search_area = st.sidebar.text_input("Search City / Town", value=st.session_state["last_search"])
 
+# Detect if user changed city in sidebar -> Reset individual SOS lock so map immediately pans to that city
 if search_area != st.session_state["last_search"]:
     st.session_state["last_search"] = search_area
     st.session_state["focused_coords"] = None
@@ -227,6 +228,7 @@ target = get_coordinates(search_area)
 st.sidebar.caption(f"Area: `{target['name']}` | GPS: `{target['lat']:.4f}, {target['lng']:.4f}`")
 st.sidebar.markdown("---")
 
+# Weather Data Selection
 st.sidebar.markdown("### ⚙️ WEATHER DATA SOURCE")
 data_mode = st.sidebar.radio(
     "Choose Mode",
@@ -291,22 +293,18 @@ if st.sidebar.button(f"Send Mock SOS in {target['name']}", use_container_width=T
 # 7. Main Split Layout
 col_radar, col_queue = st.columns([7, 4])
 
-# ------------ MAP SECTION (STATIC, NO BLINKING) ------------
+# ------------ MAP SECTION (DYNAMIC PRIORITY: QUEUE FOCUS > SIDEBAR CITY) ------------
 with col_radar:
+    # 1. If Officer specifically clicked an alert -> Zoom into that person (Level 17)
     if st.session_state["focused_coords"]:
         map_lat, map_lng = st.session_state["focused_coords"]
         map_zoom = 17
         st.markdown(f"#### 🎯 RADAR LOCKED ON: `{st.session_state['focused_user'].upper()}`", unsafe_allow_html=True)
-        if st.button("🔄 RESET RADAR VIEW (DEFAULT MAP)"):
+        if st.button("🔄 RESET RADAR VIEW (BACK TO CITY MAP)"):
             st.session_state["focused_coords"] = None
             st.session_state["focused_user"] = None
             st.rerun()
-    elif sos_list:
-        latest_sos = sos_list[-1]
-        map_lat = latest_sos["location"]["lat"]
-        map_lng = latest_sos["location"]["lng"]
-        map_zoom = 14
-        st.markdown(f"#### 🗺️ LIVE INCIDENT RADAR — `OVERVIEW MODE`", unsafe_allow_html=True)
+    # 2. Otherwise -> Center on the Sidebar Selected City (Level 13)
     else:
         map_lat = target["lat"]
         map_lng = target["lng"]
@@ -328,9 +326,10 @@ with col_radar:
         fill=True,
         fill_color="#ff003c",
         fill_opacity=0.15,
-        tooltip="Active Danger Perimeter"
+        tooltip=f"Danger Perimeter: {target['name'] if not st.session_state['focused_coords'] else 'Active Incident'}"
     ).add_to(radar_map)
 
+    # Plot all SOS beacons with human-readable location names
     for item in sos_list:
         loc = [item["location"]["lat"], item["location"]["lng"]]
         user = item.get("user", "Unknown")
@@ -358,7 +357,7 @@ with col_radar:
 
     components.html(radar_map._repr_html_(), height=550)
 
-# ------------ LIVE QUEUE (UPDATES WITH INSTANT TOAST POPUP) ------------
+# ------------ LIVE QUEUE (SILENT 2-SEC AUTO UPDATE + INSTANT POPUP NOTIFICATION) ------------
 with col_queue:
     st.markdown("#### 🚨 NDRF LIVE RESCUE QUEUE")
 
@@ -374,7 +373,7 @@ with col_queue:
         except Exception:
             live_list = []
 
-        # Instant Toast Pop-up Notification trigger when new SOS count increases
+        # Instant Toast Pop-up Notification trigger when new SOS arrives
         curr_count = len(live_list)
         if curr_count > st.session_state["prev_alert_count"] and st.session_state["prev_alert_count"] > 0:
             latest = live_list[-1]
