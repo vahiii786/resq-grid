@@ -1,4 +1,4 @@
-# dashboard.py - ResQ-Grid Command Interface (Cyber Shield Defense Theme & All Features Intact)
+# dashboard.py - ResQ-Grid Command Interface (Cyber Shield Defense Theme & Map Gap Fixed)
 import streamlit as st
 import folium
 import requests
@@ -24,7 +24,7 @@ if "last_search" not in st.session_state:
 if "prev_alert_count" not in st.session_state:
     st.session_state["prev_alert_count"] = 0
 
-# 2. Cyber Shield Defense Styling (Matching the Shield Image Palette)
+# 2. Cyber Shield Defense Styling
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,7 +34,6 @@ st.markdown("""
     * { font-family: 'Rajdhani', sans-serif !important; }
     code, pre, .mono-text { font-family: 'Share Tech Mono', monospace !important; }
     
-    /* Deep Circuit Mesh Background with Dual-Tone Glow (Cyan Defense + Red Threat) */
     .stApp {
         background-color: #030712;
         background-image: 
@@ -54,7 +53,6 @@ st.markdown("""
         100% { box-shadow: 0 0 0 0 rgba(255, 0, 85, 0); }
     }
 
-    /* Cyber Glassmorphism HUD Panels */
     .hud-panel {
         background: rgba(8, 14, 30, 0.82);
         backdrop-filter: blur(16px);
@@ -74,7 +72,6 @@ st.markdown("""
         border-bottom: 2px solid #ff0055; border-right: 2px solid #ff0055;
     }
 
-    /* KPI Stat Containers with Cyber Accents */
     .kpi-container {
         display: flex; flex-direction: column; justify-content: center; align-items: center;
         background: rgba(11, 20, 42, 0.8);
@@ -91,7 +88,6 @@ st.markdown("""
         border-radius: 50%; display: inline-block; animation: radarPulse 2s infinite; margin-right: 8px;
     }
 
-    /* High-Contrast Cyber Console Sidebar */
     [data-testid="stSidebar"] {
         background: #040817 !important;
         border-right: 1px solid rgba(0, 212, 255, 0.35) !important;
@@ -111,7 +107,6 @@ st.markdown("""
         box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.2);
     }
 
-    /* Tactical Gradient Buttons */
     .stButton>button {
         background: linear-gradient(90deg, #d90429 0%, #8d0801 100%) !important;
         color: #ffffff !important; 
@@ -129,8 +124,10 @@ st.markdown("""
         transform: translateY(-1px);
     }
 
-    /* Map Frame Styling (Exact original invert filter kept completely untouched) */
+    /* Map Frame Styling */
     iframe {
+        display: block;
+        width: 100% !important;
         border-radius: 8px; 
         border: 1px solid rgba(0, 212, 255, 0.4) !important;
         filter: invert(93%) hue-rotate(180deg) brightness(95%) contrast(90%);
@@ -139,7 +136,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Helpers: Nominatim Search, Reverse Geocoding & Weather Telemetry (Exact Unchanged)
+# 3. Helpers: Nominatim Search, Reverse Geocoding & Weather Telemetry
 @st.cache_data(ttl=3600)
 def get_coordinates(query: str):
     url = f"https://nominatim.openstreetmap.org/search?q={query},India&format=json&limit=1"
@@ -233,11 +230,10 @@ with k4:
 
 st.write("")
 
-# 6. Sidebar Controls (All Features Intact + City Search Sync)
+# 6. Sidebar Controls
 st.sidebar.markdown("### 📍 SELECT LOCATION")
 search_area = st.sidebar.text_input("Search City / Town", value=st.session_state["last_search"])
 
-# Detect if user changed city in sidebar -> Reset individual SOS lock so map immediately pans to that city
 if search_area != st.session_state["last_search"]:
     st.session_state["last_search"] = search_area
     st.session_state["focused_coords"] = None
@@ -312,9 +308,8 @@ if st.sidebar.button(f"Send Mock SOS in {target['name']}", use_container_width=T
 # 7. Main Split Layout
 col_radar, col_queue = st.columns([7, 4])
 
-# ------------ MAP SECTION (DYNAMIC PRIORITY: QUEUE FOCUS > SIDEBAR CITY) ------------
+# ------------ MAP SECTION ------------
 with col_radar:
-    # 1. If Officer specifically clicked an alert -> Zoom into that person (Level 17)
     if st.session_state["focused_coords"]:
         map_lat, map_lng = st.session_state["focused_coords"]
         map_zoom = 17
@@ -323,18 +318,20 @@ with col_radar:
             st.session_state["focused_coords"] = None
             st.session_state["focused_user"] = None
             st.rerun()
-    # 2. Otherwise -> Center on the Sidebar Selected City (Level 13)
     else:
         map_lat = target["lat"]
         map_lng = target["lng"]
         map_zoom = 13
         st.markdown(f"#### 🗺️ LIVE FLOOD MAP — `{target['name'].upper()}`", unsafe_allow_html=True)
 
+    # width="100%" & height="100%" to completely eliminate empty vertical gaps
     radar_map = folium.Map(
         location=[map_lat, map_lng], 
         zoom_start=map_zoom,
         max_zoom=19,
-        tiles="OpenStreetMap"
+        tiles="OpenStreetMap",
+        width="100%",
+        height="100%"
     )
 
     folium.Circle(
@@ -348,7 +345,7 @@ with col_radar:
         tooltip=f"Danger Perimeter: {target['name'] if not st.session_state['focused_coords'] else 'Active Incident'}"
     ).add_to(radar_map)
 
-    # Plot all SOS beacons with human-readable location names
+    # Plot all SOS beacons
     for item in sos_list:
         loc = [item["location"]["lat"], item["location"]["lng"]]
         user = item.get("user", "Unknown")
@@ -374,9 +371,10 @@ with col_radar:
             fill_opacity=0.55 if is_focused else 0.35
         ).add_to(radar_map)
 
-    components.html(radar_map._repr_html_(), height=550)
+    # Height matching iframe exactly without extra bottom gap
+    components.html(radar_map._repr_html_(), height=500)
 
-# ------------ LIVE QUEUE (SILENT 2-SEC AUTO UPDATE + INSTANT POPUP NOTIFICATION) ------------
+# ------------ LIVE QUEUE ------------
 with col_queue:
     st.markdown("#### 🚨 NDRF LIVE RESCUE QUEUE")
 
@@ -392,7 +390,6 @@ with col_queue:
         except Exception:
             live_list = []
 
-        # Instant Toast Pop-up Notification trigger when new SOS arrives
         curr_count = len(live_list)
         if curr_count > st.session_state["prev_alert_count"] and st.session_state["prev_alert_count"] > 0:
             latest = live_list[-1]
