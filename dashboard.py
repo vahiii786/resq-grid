@@ -1,4 +1,4 @@
-# dashboard.py - ResQ-Grid Command Interface (Interactive Click-to-Locate Edition)
+# dashboard.py - ResQ-Grid Command Interface (With Reverse Geocoded Location Names)
 import streamlit as st
 import folium
 import requests
@@ -167,7 +167,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Helpers: Geocoding & Satellite Weather
+# 3. Helpers: Geocoding, Reverse-Geocoding & Satellite Weather
 def get_coordinates(query: str):
     url = f"https://nominatim.openstreetmap.org/search?q={query},India&format=json&limit=1"
     headers = {"User-Agent": "ResQGrid-TacticalEngine"}
@@ -182,6 +182,26 @@ def get_coordinates(query: str):
     except Exception:
         pass
     return {"name": "Vijayawada", "lat": 16.5062, "lng": 80.6480}
+
+@st.cache_data(ttl=600)
+def get_place_name(lat: float, lon: float) -> str:
+    """Converts GPS Coordinates into Human Readable Area/City Name"""
+    url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json"
+    headers = {"User-Agent": "ResQGrid-TacticalEngine"}
+    try:
+        res = requests.get(url, headers=headers, timeout=4).json()
+        address = res.get("address", {})
+        suburb = address.get("suburb") or address.get("neighbourhood") or address.get("residential") or address.get("road")
+        city = address.get("city") or address.get("town") or address.get("village") or address.get("county")
+        if suburb and city:
+            return f"{suburb}, {city}"
+        elif city:
+            return city
+        elif res.get("display_name"):
+            return ", ".join(res.get("display_name").split(",")[:2])
+    except Exception:
+        pass
+    return f"Sector ({lat:.3f}, {lon:.3f})"
 
 def fetch_satellite_rain(lat: float, lon: float):
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=rain&timezone=auto"
@@ -332,14 +352,14 @@ if st.sidebar.button(f"Send Mock SOS in {target['name']}", use_container_width=T
     except Exception:
         st.sidebar.error("Could not send SOS alert.")
 
-# 7. Main Split Layout with Click-to-Focus Map
+# 7. Main Split Layout with Named Locations & Click-to-Focus
 col_radar, col_queue = st.columns([7, 4])
 
 with col_radar:
-    # Check if an alert was specifically clicked by the officer
+    # Camera Positioning
     if st.session_state["focused_coords"]:
         map_lat, map_lng = st.session_state["focused_coords"]
-        map_zoom = 17  # Street level close-up zoom
+        map_zoom = 17
         st.markdown(f"#### 🎯 RADAR LOCKED ON: `{st.session_state['focused_user'].upper()}`", unsafe_allow_html=True)
         if st.button("🔄 RESET RADAR VIEW (DEFAULT MAP)"):
             st.session_state["focused_coords"] = None
@@ -364,7 +384,7 @@ with col_radar:
         tiles="OpenStreetMap"
     )
 
-    # Base Danger Perimeter Circle
+    # Perimeter Circle
     folium.Circle(
         location=[map_lat, map_lng],
         radius=1500 if st.session_state["focused_coords"] else 3000,
@@ -376,24 +396,26 @@ with col_radar:
         tooltip="Active Danger Perimeter"
     ).add_to(radar_map)
 
-    # Plot all SOS beacons
+    # Plot all SOS beacons with human-readable location tooltips
     for item in sos_list:
         loc = [item["location"]["lat"], item["location"]["lng"]]
         user = item.get("user", "Unknown")
         count = item.get("people", 1)
         med = item.get("medical_urgent", False)
         
-        # Check if this pin is the one currently clicked/focused
+        # Reverse Geocode coordinates to Real Town / Area Name
+        place_label = get_place_name(loc[0], loc[1])
+        
         is_focused = (st.session_state["focused_coords"] == (loc[0], loc[1]))
         
         folium.Marker(
             location=loc,
-            tooltip=f"🚨 SOS: {user}",
-            popup=f"<b>{user}</b><br>Trapped: {count}<br>Medical Emergency: {med}<br>GPS: {loc[0]:.5f}, {loc[1]:.5f}",
+            tooltip=f"🚨 {user} — {place_label}",
+            popup=f"<b>{user}</b><br>📍 <b>Area:</b> {place_label}<br>👥 <b>Trapped:</b> {count}<br>🚑 <b>Urgent Medical:</b> {med}<br><code>GPS: {loc[0]:.5f}, {loc[1]:.5f}</code>",
             icon=folium.Icon(color="red" if med else "orange", icon="warning-sign" if med else "user")
         ).add_to(radar_map)
         
-        # Ring highlight: Cyan ring if actively selected, Red ring otherwise
+        # Highlight Rings
         folium.CircleMarker(
             location=loc,
             radius=22 if is_focused else 14,
@@ -419,10 +441,16 @@ with col_queue:
             u_lng = alert['location']['lng']
             user_name = alert.get('user', 'Citizen')
             
+            # Fetch human-readable town/area name
+            place_name = get_place_name(u_lat, u_lng)
+            
             st.markdown(f"""
             <div class="hud-panel" style="margin-bottom: 8px; border-left: 3px solid #ff003c; padding: 12px;">
                 <div style="font-weight: bold; font-size: 15px; color: #f8fafc;" class="mono-text">
                     ALERT #{len(sos_list)-idx:02d} : {user_name}
+                </div>
+                <div style="font-size: 13px; color: #00f0ff; font-weight: bold; margin: 2px 0;">
+                    📍 {place_name}
                 </div>
                 <div style="font-size: 12px; margin: 2px 0;" class="mono-text">{urgent_badge}</div>
                 <div style="font-size: 13px; color: #94a3b8;" class="mono-text">
@@ -431,10 +459,9 @@ with col_queue:
             </div>
             """, unsafe_allow_html=True)
             
-            # Interactive Click-To-Locate Action Button for each alert
             if st.button(f"🎯 LOCATE ON RADAR (#{len(sos_list)-idx:02d})", key=f"focus_btn_{idx}_{u_lat}", use_container_width=True):
                 st.session_state["focused_coords"] = (u_lat, u_lng)
-                st.session_state["focused_user"] = user_name
+                st.session_state["focused_user"] = f"{user_name} ({place_name})"
                 st.rerun()
                 
             st.write("")
