@@ -46,7 +46,7 @@ if st.button("🚨 TRANSMIT EMERGENCY SOS 🚨", use_container_width=True):
         "medical_emergency": medical
     }
     try:
-        res = requests.post("http://127.0.0.1:8000/send-sos", json=payload, timeout=4)
+        res = requests.post("https://resqgrid-api.onrender.com/send-sos", json=payload, timeout=4)
         if res.status_code == 200:
             st.success("✅ DISTRESS BEACON SENT! NDRF Team Dispatched.")
             st.balloons()
