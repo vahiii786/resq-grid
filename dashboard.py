@@ -1,4 +1,4 @@
-# dashboard.py - ResQ-Grid Tactical Command Interface (All Original Features Restored + Zero Blink)
+# dashboard.py - ResQ-Grid Command Interface (With Instant Popup Notification)
 import streamlit as st
 import folium
 import requests
@@ -21,6 +21,8 @@ if "focused_user" not in st.session_state:
     st.session_state["focused_user"] = None
 if "last_search" not in st.session_state:
     st.session_state["last_search"] = "Vijayawada"
+if "prev_alert_count" not in st.session_state:
+    st.session_state["prev_alert_count"] = 0
 
 # 2. High-Tech Styling + Clear Visual Contrast
 st.markdown("""
@@ -118,7 +120,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Helpers: Geocoding, Reverse Geocoding & Weather Telemetry
+# 3. Helpers
 @st.cache_data(ttl=3600)
 def get_coordinates(query: str):
     url = f"https://nominatim.openstreetmap.org/search?q={query},India&format=json&limit=1"
@@ -164,7 +166,7 @@ def fetch_satellite_rain(lat: float, lon: float):
     except Exception:
         return 0.0
 
-# Fetch Live SOS Alerts for Map Initialization
+# Fetch Live SOS Alerts
 sos_list = []
 try:
     sos_res = requests.get(f"{API_BASE_URL}/all-sos", timeout=4).json()
@@ -212,7 +214,7 @@ with k4:
 
 st.write("")
 
-# 6. Sidebar Controls (All Original Features Fully Intact)
+# 6. Sidebar Controls
 st.sidebar.markdown("### 📍 SELECT LOCATION")
 search_area = st.sidebar.text_input("Search City / Town", value=st.session_state["last_search"])
 
@@ -289,7 +291,7 @@ if st.sidebar.button(f"Send Mock SOS in {target['name']}", use_container_width=T
 # 7. Main Split Layout
 col_radar, col_queue = st.columns([7, 4])
 
-# ------------ MAP SECTION (STATIC, NO FLICKERING) ------------
+# ------------ MAP SECTION (STATIC, NO BLINKING) ------------
 with col_radar:
     if st.session_state["focused_coords"]:
         map_lat, map_lng = st.session_state["focused_coords"]
@@ -356,7 +358,7 @@ with col_radar:
 
     components.html(radar_map._repr_html_(), height=550)
 
-# ------------ SILENT LIVE QUEUE (UPDATES EVERY 2s WITHOUT FLICKERING THE MAP) ------------
+# ------------ LIVE QUEUE (UPDATES WITH INSTANT TOAST POPUP) ------------
 with col_queue:
     st.markdown("#### 🚨 NDRF LIVE RESCUE QUEUE")
 
@@ -371,6 +373,14 @@ with col_queue:
             live_list = r.get("active_emergencies", [])
         except Exception:
             live_list = []
+
+        # Instant Toast Pop-up Notification trigger when new SOS count increases
+        curr_count = len(live_list)
+        if curr_count > st.session_state["prev_alert_count"] and st.session_state["prev_alert_count"] > 0:
+            latest = live_list[-1]
+            latest_place = get_place_name(latest['location']['lat'], latest['location']['lng'])
+            st.toast(f"🚨 NEW DISTRESS SIGNAL! {latest.get('user', 'Citizen')} ({latest_place})", icon="⚠️")
+        st.session_state["prev_alert_count"] = curr_count
 
         if live_list:
             for idx, alert in enumerate(reversed(live_list)):
