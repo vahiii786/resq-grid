@@ -1,4 +1,4 @@
-# dashboard.py - ResQ-Grid Command Interface (Smart Auto-Centering Edition)
+# dashboard.py - ResQ-Grid Command Interface (Interactive Click-to-Locate Edition)
 import streamlit as st
 import folium
 import requests
@@ -14,6 +14,12 @@ st.set_page_config(
 
 # Centralized Cloud Backend URL
 API_BASE_URL = "https://resqgrid-api.onrender.com"
+
+# Session State for Click-to-Focus Map Interaction
+if "focused_coords" not in st.session_state:
+    st.session_state["focused_coords"] = None
+if "focused_user" not in st.session_state:
+    st.session_state["focused_user"] = None
 
 # 2. High-Tech Styling + Clear Visual Contrast
 st.markdown("""
@@ -326,17 +332,25 @@ if st.sidebar.button(f"Send Mock SOS in {target['name']}", use_container_width=T
     except Exception:
         st.sidebar.error("Could not send SOS alert.")
 
-# 7. Main Split Layout with Smart Auto-Centering Map
+# 7. Main Split Layout with Click-to-Focus Map
 col_radar, col_queue = st.columns([7, 4])
 
 with col_radar:
-    # Check if SOS beacons exist to center map dynamically on the incident
-    if sos_list:
+    # Check if an alert was specifically clicked by the officer
+    if st.session_state["focused_coords"]:
+        map_lat, map_lng = st.session_state["focused_coords"]
+        map_zoom = 17  # Street level close-up zoom
+        st.markdown(f"#### 🎯 RADAR LOCKED ON: `{st.session_state['focused_user'].upper()}`", unsafe_allow_html=True)
+        if st.button("🔄 RESET RADAR VIEW (DEFAULT MAP)"):
+            st.session_state["focused_coords"] = None
+            st.session_state["focused_user"] = None
+            st.rerun()
+    elif sos_list:
         latest_sos = sos_list[-1]
         map_lat = latest_sos["location"]["lat"]
         map_lng = latest_sos["location"]["lng"]
-        map_zoom = 15
-        st.markdown(f"#### 🗺️ LIVE INCIDENT RADAR — `FOCUSED ON ACTIVE SOS`", unsafe_allow_html=True)
+        map_zoom = 14
+        st.markdown(f"#### 🗺️ LIVE INCIDENT RADAR — `OVERVIEW MODE`", unsafe_allow_html=True)
     else:
         map_lat = target["lat"]
         map_lng = target["lng"]
@@ -350,15 +364,15 @@ with col_radar:
         tiles="OpenStreetMap"
     )
 
-    # Perimeter Circle around focus
+    # Base Danger Perimeter Circle
     folium.Circle(
         location=[map_lat, map_lng],
-        radius=2500,
+        radius=1500 if st.session_state["focused_coords"] else 3000,
         color="#ff003c",
         weight=2,
         fill=True,
         fill_color="#ff003c",
-        fill_opacity=0.2,
+        fill_opacity=0.15,
         tooltip="Active Danger Perimeter"
     ).add_to(radar_map)
 
@@ -369,7 +383,9 @@ with col_radar:
         count = item.get("people", 1)
         med = item.get("medical_urgent", False)
         
-        # High visibility marker
+        # Check if this pin is the one currently clicked/focused
+        is_focused = (st.session_state["focused_coords"] == (loc[0], loc[1]))
+        
         folium.Marker(
             location=loc,
             tooltip=f"🚨 SOS: {user}",
@@ -377,15 +393,15 @@ with col_radar:
             icon=folium.Icon(color="red" if med else "orange", icon="warning-sign" if med else "user")
         ).add_to(radar_map)
         
-        # Glowing radar ring around pin
+        # Ring highlight: Cyan ring if actively selected, Red ring otherwise
         folium.CircleMarker(
             location=loc,
-            radius=16,
-            color="#ff003c",
-            weight=3,
+            radius=22 if is_focused else 14,
+            color="#00f0ff" if is_focused else "#ff003c",
+            weight=4 if is_focused else 2,
             fill=True,
-            fill_color="#ff003c",
-            fill_opacity=0.45
+            fill_color="#00f0ff" if is_focused else "#ff003c",
+            fill_opacity=0.55 if is_focused else 0.35
         ).add_to(radar_map)
 
     components.html(radar_map._repr_html_(), height=550)
@@ -399,17 +415,29 @@ with col_queue:
     if sos_list:
         for idx, alert in enumerate(reversed(sos_list)):
             urgent_badge = "<span style='color:#ff003c; font-weight:bold;'>[URGENT: MEDICAL HELP NEEDED]</span>" if alert.get("medical_urgent") else "<span style='color:#00f0ff;'>[STANDARD RESCUE]</span>"
+            u_lat = alert['location']['lat']
+            u_lng = alert['location']['lng']
+            user_name = alert.get('user', 'Citizen')
+            
             st.markdown(f"""
-            <div class="hud-panel" style="margin-bottom: 12px; border-left: 3px solid #ff003c;">
+            <div class="hud-panel" style="margin-bottom: 8px; border-left: 3px solid #ff003c; padding: 12px;">
                 <div style="font-weight: bold; font-size: 15px; color: #f8fafc;" class="mono-text">
-                    ALERT #{len(sos_list)-idx:02d} : {alert.get('user')}
+                    ALERT #{len(sos_list)-idx:02d} : {user_name}
                 </div>
-                <div style="font-size: 12px; margin: 4px 0;" class="mono-text">{urgent_badge}</div>
+                <div style="font-size: 12px; margin: 2px 0;" class="mono-text">{urgent_badge}</div>
                 <div style="font-size: 13px; color: #94a3b8;" class="mono-text">
-                    People: <b style="color:#f8fafc;">{alert.get('people')}</b> | GPS: <code>{alert['location']['lat']:.5f}, {alert['location']['lng']:.5f}</code>
+                    People: <b style="color:#f8fafc;">{alert.get('people')}</b> | GPS: <code>{u_lat:.5f}, {u_lng:.5f}</code>
                 </div>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Interactive Click-To-Locate Action Button for each alert
+            if st.button(f"🎯 LOCATE ON RADAR (#{len(sos_list)-idx:02d})", key=f"focus_btn_{idx}_{u_lat}", use_container_width=True):
+                st.session_state["focused_coords"] = (u_lat, u_lng)
+                st.session_state["focused_user"] = user_name
+                st.rerun()
+                
+            st.write("")
     else:
         st.markdown("""
         <div class="hud-panel" style="text-align: center; border: 1px dashed rgba(0, 240, 255, 0.3);">
