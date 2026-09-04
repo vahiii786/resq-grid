@@ -5,3 +5,4 @@ requests
 folium
 streamlit-folium
 streamlit_js_eval
+streamlit-autorefresh
