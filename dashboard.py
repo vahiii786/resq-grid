@@ -1,4 +1,4 @@
-# dashboard.py - ResQ-Grid Command Interface (Clear & Simple Terms)
+# dashboard.py - ResQ-Grid Command Interface (Connected to Render Cloud)
 import streamlit as st
 import folium
 import requests
@@ -11,6 +11,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Centralized Cloud Backend URL
+API_BASE_URL = "https://resqgrid-api.onrender.com"
 
 # 2. High-Tech Styling + Clear Visual Contrast
 st.markdown("""
@@ -184,10 +187,10 @@ def fetch_satellite_rain(lat: float, lon: float):
     except Exception:
         return 0.0
 
-# Fetch Live SOS Alerts from Server
+# Fetch Live SOS Alerts from Render Cloud Server
 sos_list = []
 try:
-    sos_res = requests.get("http://127.0.0.1:8000/all-sos", timeout=2).json()
+    sos_res = requests.get(f"{API_BASE_URL}/all-sos", timeout=10).json()
     sos_list = sos_res.get("active_emergencies", [])
 except Exception:
     pass
@@ -210,7 +213,7 @@ st.markdown("""
         </div>
         <div style="text-align: right;" class="mono-text">
             <span style="color: #00f0ff; font-weight: bold; font-size: 14px;">[ SYSTEM ONLINE ]</span><br>
-            <span style="color: #94a3b8; font-size: 11px;">Weather Satellite: CONNECTED</span>
+            <span style="color: #94a3b8; font-size: 11px;">Cloud Uplink: CONNECTED</span>
         </div>
     </div>
 </div>
@@ -263,7 +266,7 @@ target = get_coordinates(search_area)
 st.sidebar.caption(f"Area: `{target['name']}` | GPS: `{target['lat']:.4f}, {target['lng']:.4f}`")
 st.sidebar.markdown("---")
 
-# Weather Data Selection (Live vs Test Simulation)
+# Weather Data Selection
 st.sidebar.markdown("### ⚙️ WEATHER DATA SOURCE")
 data_mode = st.sidebar.radio(
     "Choose Mode",
@@ -290,7 +293,7 @@ if st.sidebar.button("⚡ CHECK FLOOD RISK (AI)", use_container_width=True):
         "elevation_m": elev_val
     }
     try:
-        r = requests.post("http://127.0.0.1:8000/check-risk", json=payload).json()
+        r = requests.post(f"{API_BASE_URL}/check-risk", json=payload, timeout=10).json()
         eval_data = r["result"]
         lvl = eval_data["level"]
         score = eval_data["risk_score"]
@@ -304,7 +307,7 @@ if st.sidebar.button("⚡ CHECK FLOOD RISK (AI)", use_container_width=True):
             st.sidebar.success(f"THREAT LEVEL: {lvl} [Score: {score}]")
         st.sidebar.info(eval_data["action"])
     except Exception:
-        st.sidebar.error("FastAPI Backend Connection Error.")
+        st.sidebar.error("Cloud Backend Connection Error.")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🚨 TEST CITIZEN SOS")
@@ -317,7 +320,7 @@ if st.sidebar.button(f"Send Mock SOS in {target['name']}", use_container_width=T
         "medical_emergency": True
     }
     try:
-        requests.post("https://resqgrid-api.onrender.com/send-sos", json=mock)
+        requests.post(f"{API_BASE_URL}/send-sos", json=mock, timeout=10)
         st.sidebar.success("SOS Alert Sent to Queue!")
         st.rerun()
     except Exception:
