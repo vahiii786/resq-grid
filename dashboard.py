@@ -317,7 +317,7 @@ if st.sidebar.button(f"Send Mock SOS in {target['name']}", use_container_width=T
         "medical_emergency": True
     }
     try:
-        requests.post("http://127.0.0.1:8000/send-sos", json=mock)
+        requests.post("https://resqgrid-api.onrender.com/send-sos", json=mock)
         st.sidebar.success("SOS Alert Sent to Queue!")
         st.rerun()
     except Exception:
