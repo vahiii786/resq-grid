@@ -1,9 +1,8 @@
-# dashboard.py - ResQ-Grid Command Interface (Ultra-Fast 1.5s Instant Sync)
+# dashboard.py - ResQ-Grid Tactical Command Center (Zero-Flicker Fragment Engine)
 import streamlit as st
 import folium
 import requests
 import streamlit.components.v1 as components
-from streamlit_autorefresh import st_autorefresh
 
 # 1. Page Configuration
 st.set_page_config(
@@ -15,20 +14,15 @@ st.set_page_config(
 
 API_BASE_URL = "https://resqgrid-api.onrender.com"
 
-# ⚡ ULTRA-FAST AUTO-REFRESH: Runs every 1.5 seconds (1500 ms) for instant alerts
-count = st_autorefresh(interval=1500, limit=None, key="instant_radar_sync")
-
 # Session States
 if "focused_coords" not in st.session_state:
     st.session_state["focused_coords"] = None
 if "focused_user" not in st.session_state:
     st.session_state["focused_user"] = None
-if "last_sos_count" not in st.session_state:
-    st.session_state["last_sos_count"] = 0
 if "last_search" not in st.session_state:
     st.session_state["last_search"] = "Vijayawada"
 
-# 2. High-Tech Styling + Visual Alerts
+# 2. Styling
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -52,14 +46,14 @@ st.markdown("""
     
     @keyframes radarPulse {
         0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
-        70% { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
+        70% { box-shadow: 0 0 0 14px rgba(239, 68, 68, 0); }
         100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
     
     .hud-panel {
         background: rgba(10, 15, 29, 0.85);
         backdrop-filter: blur(14px);
-        border: 1px solid rgba(0, 240, 255, 0.25);
+        border: 1px solid rgba(0, 240, 255, 0.22);
         border-radius: 8px;
         padding: 14px 18px;
         position: relative;
@@ -83,7 +77,7 @@ st.markdown("""
     
     .pulse-dot {
         height: 10px; width: 10px; background-color: #ef4444;
-        border-radius: 50%; display: inline-block; animation: radarPulse 1.2s infinite; margin-right: 8px;
+        border-radius: 50%; display: inline-block; animation: radarPulse 1.5s infinite; margin-right: 8px;
     }
     
     [data-testid="stSidebar"] {
@@ -99,9 +93,8 @@ st.markdown("""
     }
     .stButton>button:hover {
         background: linear-gradient(90deg, #dc2626 0%, #991b1b 100%) !important;
-        box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
     }
-    
     iframe { border-radius: 8px; border: 1px solid rgba(0, 240, 255, 0.25) !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -140,58 +133,28 @@ def get_place_name(lat: float, lon: float) -> str:
     except Exception:
         return f"{lat:.3f}, {lon:.3f}"
 
-# Fetch Live SOS with 2s timeout for instant UI response
-sos_list = []
-try:
-    sos_res = requests.get(f"{API_BASE_URL}/all-sos", timeout=2).json()
-    sos_list = sos_res.get("active_emergencies", [])
-except Exception:
-    pass
-
-# Check if a NEW SOS arrived just now -> Flash visual indicator
-current_sos_count = len(sos_list)
-if current_sos_count > st.session_state["last_sos_count"]:
-    st.toast(f"🚨 NEW DISTRESS BEACON RECEIVED! Total: {current_sos_count}", icon="⚠️")
-    st.session_state["last_sos_count"] = current_sos_count
-
-# 4. Operations Header
+# 4. Top Operations Header (Static - Never Blinks)
 st.markdown("""
 <div class="hud-panel" style="margin-bottom: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
             <div style="display:flex; align-items:center;">
                 <span class="pulse-dot"></span>
-                <span style="font-family: 'Share Tech Mono', monospace; color: #ef4444; font-size: 12px; letter-spacing: 2px;">LIVE WAR-ROOM STREAMING</span>
+                <span style="font-family: 'Share Tech Mono', monospace; color: #ef4444; font-size: 12px; letter-spacing: 2px;">TACTICAL LIVE MESH</span>
             </div>
             <h1 style="margin: 2px 0 0 0; font-size: 26px; font-weight: 800; color: #f8fafc;">
                 RESQ-GRID <span style="color: #00f0ff;">COMMAND CENTER</span>
             </h1>
         </div>
         <div style="text-align: right;" class="mono-text">
-            <span style="color: #00f0ff; font-weight: bold; font-size: 13px;">[ INSTANT 1.5s SYNC ]</span><br>
-            <span style="color: #10b981; font-size: 11px;">● Zero-Delay Cloud Socket</span>
+            <span style="color: #00f0ff; font-weight: bold; font-size: 13px;">[ ZERO-FLICKER SOCKET: ACTIVE ]</span><br>
+            <span style="color: #10b981; font-size: 11px;">● Silent 2s Fragment Polling</span>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# 5. Metrics Row
-k1, k2, k3, k4 = st.columns(4)
-total_trapped = sum(item.get("people", 0) for item in sos_list)
-critical_cases = sum(1 for item in sos_list if item.get("medical_urgent", False))
-
-with k1:
-    st.markdown(f'<div class="kpi-container"><div class="kpi-title">TOTAL SOS ALERTS</div><div class="kpi-num" style="color:#ff003c;">{len(sos_list):02d}</div></div>', unsafe_allow_html=True)
-with k2:
-    st.markdown(f'<div class="kpi-container" style="border-top-color:#f59e0b;"><div class="kpi-title">PEOPLE TRAPPED</div><div class="kpi-num" style="color:#f59e0b;">{total_trapped:02d}</div></div>', unsafe_allow_html=True)
-with k3:
-    st.markdown(f'<div class="kpi-container" style="border-top-color:#ec4899;"><div class="kpi-title">MEDICAL EMERGENCIES</div><div class="kpi-num" style="color:#ec4899;">{critical_cases:02d}</div></div>', unsafe_allow_html=True)
-with k4:
-    st.markdown('<div class="kpi-container" style="border-top-color:#10b981;"><div class="kpi-title">RADAR STREAM</div><div class="kpi-num" style="color:#10b981;">LIVE</div></div>', unsafe_allow_html=True)
-
-st.write("")
-
-# 6. Sidebar Controls
+# 5. Sidebar Controls (Static - Never Blinks)
 st.sidebar.markdown("### 📍 SELECT BASE SECTOR")
 search_area = st.sidebar.text_input("Enter City / District", value=st.session_state["last_search"])
 
@@ -206,119 +169,137 @@ st.sidebar.markdown("---")
 
 if st.sidebar.button("⚡ CHECK SECTOR FLOOD RISK", use_container_width=True):
     st.session_state["focused_coords"] = None
-    payload = {
-        "area_name": target["name"],
-        "rainfall_mm": 120.0,
-        "river_level_m": 6.5,
-        "elevation_m": 15.0
-    }
+    payload = {"area_name": target["name"], "rainfall_mm": 120.0, "river_level_m": 6.5, "elevation_m": 15.0}
     try:
-        r = requests.post(f"{API_BASE_URL}/check-risk", json=payload, timeout=8).json()
+        r = requests.post(f"{API_BASE_URL}/check-risk", json=payload, timeout=6).json()
         eval_data = r["result"]
         st.sidebar.error(f"RISK: {eval_data['level']} [{eval_data['risk_score']}]")
         st.sidebar.info(eval_data["action"])
     except Exception:
         st.sidebar.error("Cloud Error")
 
-# 7. Main Split Layout
-col_radar, col_queue = st.columns([7, 4])
+# 6. Silent Live War-Room Fragment (Only this updates every 2s without whole-page flicker)
+@st.fragment(run_every=2)
+def render_live_command_feed():
+    sos_list = []
+    try:
+        sos_res = requests.get(f"{API_BASE_URL}/all-sos", timeout=3).json()
+        sos_list = sos_res.get("active_emergencies", [])
+    except Exception:
+        pass
 
-with col_radar:
-    # Priority: Officer click focus -> Latest Incoming SOS -> Default City Sector
-    if st.session_state["focused_coords"]:
-        map_lat, map_lng = st.session_state["focused_coords"]
-        map_zoom = 17
-        st.markdown(f"#### 🎯 RADAR LOCKED: `{st.session_state['focused_user'].upper()}`", unsafe_allow_html=True)
-        if st.button("🔄 BACK TO OVERVIEW MAP"):
-            st.session_state["focused_coords"] = None
-            st.session_state["focused_user"] = None
-            st.rerun()
-    elif sos_list:
-        # Automatically pan to latest SOS when it arrives
-        latest_sos = sos_list[-1]
-        map_lat = latest_sos["location"]["lat"]
-        map_lng = latest_sos["location"]["lng"]
-        map_zoom = 14
-        st.markdown(f"#### 🗺️ LIVE INCIDENT RADAR — `TRACKING ACTIVE SOS`", unsafe_allow_html=True)
-    else:
-        map_lat = target["lat"]
-        map_lng = target["lng"]
-        map_zoom = 13
-        st.markdown(f"#### 🗺️ SECTOR RADAR — `{target['name'].upper()}`", unsafe_allow_html=True)
+    # Dynamic KPI Metrics
+    k1, k2, k3, k4 = st.columns(4)
+    total_trapped = sum(item.get("people", 0) for item in sos_list)
+    critical_cases = sum(1 for item in sos_list if item.get("medical_urgent", False))
 
-    radar_map = folium.Map(location=[map_lat, map_lng], zoom_start=map_zoom, tiles="OpenStreetMap")
+    with k1:
+        st.markdown(f'<div class="kpi-container"><div class="kpi-title">TOTAL DISTRESS BEACONS</div><div class="kpi-num" style="color:#ff003c;">{len(sos_list):02d}</div></div>', unsafe_allow_html=True)
+    with k2:
+        st.markdown(f'<div class="kpi-container" style="border-top-color:#f59e0b;"><div class="kpi-title">CIVILIANS TRAPPED</div><div class="kpi-num" style="color:#f59e0b;">{total_trapped:02d}</div></div>', unsafe_allow_html=True)
+    with k3:
+        st.markdown(f'<div class="kpi-container" style="border-top-color:#ec4899;"><div class="kpi-title">TRAUMA CASES</div><div class="kpi-num" style="color:#ec4899;">{critical_cases:02d}</div></div>', unsafe_allow_html=True)
+    with k4:
+        st.markdown('<div class="kpi-container" style="border-top-color:#10b981;"><div class="kpi-title">RADAR STREAM</div><div class="kpi-num" style="color:#10b981;">SYNCED</div></div>', unsafe_allow_html=True)
 
-    folium.Circle(
-        location=[map_lat, map_lng],
-        radius=1500 if st.session_state["focused_coords"] else 3000,
-        color="#ff003c", weight=2, fill=True, fill_color="#ff003c", fill_opacity=0.18,
-        tooltip="Danger Zone"
-    ).add_to(radar_map)
+    st.write("")
 
-    for item in sos_list:
-        loc = [item["location"]["lat"], item["location"]["lng"]]
-        user = item.get("user", "Unknown")
-        count = item.get("people", 1)
-        med = item.get("medical_urgent", False)
-        place_label = get_place_name(loc[0], loc[1])
-        is_focused = (st.session_state["focused_coords"] == (loc[0], loc[1]))
+    col_radar, col_queue = st.columns([7, 4])
 
-        folium.Marker(
-            location=loc,
-            tooltip=f"🚨 {user} ({place_label})",
-            popup=f"<b>{user}</b><br>📍 {place_label}<br>👥 Trapped: {count}<br>🚑 Medical: {med}",
-            icon=folium.Icon(color="red" if med else "orange", icon="warning-sign" if med else "user")
+    with col_radar:
+        if st.session_state["focused_coords"]:
+            map_lat, map_lng = st.session_state["focused_coords"]
+            map_zoom = 17
+            st.markdown(f"#### 🎯 RADAR LOCKED: `{st.session_state['focused_user'].upper()}`", unsafe_allow_html=True)
+            if st.button("🔄 BACK TO OVERVIEW MAP"):
+                st.session_state["focused_coords"] = None
+                st.session_state["focused_user"] = None
+                st.rerun()
+        elif sos_list:
+            latest_sos = sos_list[-1]
+            map_lat = latest_sos["location"]["lat"]
+            map_lng = latest_sos["location"]["lng"]
+            map_zoom = 14
+            st.markdown(f"#### 🗺️ LIVE INCIDENT RADAR — `TRACKING ACTIVE BEACONS`", unsafe_allow_html=True)
+        else:
+            map_lat = target["lat"]
+            map_lng = target["lng"]
+            map_zoom = 13
+            st.markdown(f"#### 🗺️ SECTOR RADAR — `{target['name'].upper()}`", unsafe_allow_html=True)
+
+        radar_map = folium.Map(location=[map_lat, map_lng], zoom_start=map_zoom, tiles="OpenStreetMap")
+
+        folium.Circle(
+            location=[map_lat, map_lng],
+            radius=1200 if st.session_state["focused_coords"] else 2800,
+            color="#ff003c", weight=2, fill=True, fill_color="#ff003c", fill_opacity=0.18
         ).add_to(radar_map)
 
-        folium.CircleMarker(
-            location=loc,
-            radius=20 if is_focused else 12,
-            color="#00f0ff" if is_focused else "#ff003c",
-            weight=4 if is_focused else 2,
-            fill=True,
-            fill_color="#00f0ff" if is_focused else "#ff003c",
-            fill_opacity=0.6 if is_focused else 0.3
-        ).add_to(radar_map)
+        for item in sos_list:
+            loc = [item["location"]["lat"], item["location"]["lng"]]
+            user = item.get("user", "Citizen")
+            count = item.get("people", 1)
+            med = item.get("medical_urgent", False)
+            place_label = get_place_name(loc[0], loc[1])
+            is_focused = (st.session_state["focused_coords"] == (loc[0], loc[1]))
 
-    components.html(radar_map._repr_html_(), height=550)
+            folium.Marker(
+                location=loc,
+                tooltip=f"🚨 {user} ({place_label})",
+                popup=f"<b>{user}</b><br>📍 {place_label}<br>👥 Trapped: {count}<br>🚑 Medical: {med}",
+                icon=folium.Icon(color="red" if med else "orange", icon="warning-sign" if med else "user")
+            ).add_to(radar_map)
 
-with col_queue:
-    st.markdown("#### 🚨 NDRF LIVE RESCUE QUEUE")
-    if st.button("🔄 FORCE REFRESH NOW", use_container_width=True):
-        st.rerun()
+            folium.CircleMarker(
+                location=loc,
+                radius=18 if is_focused else 12,
+                color="#00f0ff" if is_focused else "#ff003c",
+                weight=3 if is_focused else 2,
+                fill=True,
+                fill_color="#00f0ff" if is_focused else "#ff003c",
+                fill_opacity=0.55 if is_focused else 0.3
+            ).add_to(radar_map)
 
-    if sos_list:
-        for idx, alert in enumerate(reversed(sos_list)):
-            urgent_badge = "<span style='color:#ff003c; font-weight:bold;'>[URGENT: MEDICAL]</span>" if alert.get("medical_urgent") else "<span style='color:#00f0ff;'>[STANDARD RESCUE]</span>"
-            u_lat = alert['location']['lat']
-            u_lng = alert['location']['lng']
-            user_name = alert.get('user', 'Citizen')
-            place_name = get_place_name(u_lat, u_lng)
+        components.html(radar_map._repr_html_(), height=540)
 
-            st.markdown(f"""
-            <div class="hud-panel" style="margin-bottom: 8px; border-left: 3px solid #ff003c; padding: 10px;">
-                <div style="font-weight: bold; font-size: 15px; color: #f8fafc;" class="mono-text">
-                    ALERT #{len(sos_list)-idx:02d} : {user_name}
+    with col_queue:
+        st.markdown("#### 🚨 NDRF LIVE RESCUE QUEUE")
+
+        if sos_list:
+            for idx, alert in enumerate(reversed(sos_list)):
+                urgent_badge = "<span style='color:#ff003c; font-weight:bold;'>[URGENT: MEDICAL]</span>" if alert.get("medical_urgent") else "<span style='color:#00f0ff;'>[STANDARD RESCUE]</span>"
+                u_lat = alert['location']['lat']
+                u_lng = alert['location']['lng']
+                user_name = alert.get('user', 'Citizen')
+                place_name = get_place_name(u_lat, u_lng)
+
+                st.markdown(f"""
+                <div class="hud-panel" style="margin-bottom: 8px; border-left: 3px solid #ff003c; padding: 10px;">
+                    <div style="font-weight: bold; font-size: 15px; color: #f8fafc;" class="mono-text">
+                        ALERT #{len(sos_list)-idx:02d} : {user_name}
+                    </div>
+                    <div style="font-size: 13px; color: #00f0ff; font-weight: bold; margin: 2px 0;">
+                        📍 {place_name}
+                    </div>
+                    <div style="font-size: 12px; margin: 2px 0;" class="mono-text">{urgent_badge}</div>
+                    <div style="font-size: 12px; color: #94a3b8;" class="mono-text">
+                        People: <b style="color:#f8fafc;">{alert.get('people')}</b> | GPS: <code>{u_lat:.4f}, {u_lng:.4f}</code>
+                    </div>
                 </div>
-                <div style="font-size: 13px; color: #00f0ff; font-weight: bold; margin: 2px 0;">
-                    📍 {place_name}
-                </div>
-                <div style="font-size: 12px; margin: 2px 0;" class="mono-text">{urgent_badge}</div>
-                <div style="font-size: 12px; color: #94a3b8;" class="mono-text">
-                    People: <b style="color:#f8fafc;">{alert.get('people')}</b> | GPS: <code>{u_lat:.4f}, {u_lng:.4f}</code>
-                </div>
+                """, unsafe_allow_html=True)
+
+                if st.button(f"🎯 LOCATE ON RADAR (#{len(sos_list)-idx:02d})", key=f"focus_{idx}_{u_lat}", use_container_width=True):
+                    st.session_state["focused_coords"] = (u_lat, u_lng)
+                    st.session_state["focused_user"] = f"{user_name} - {place_name}"
+                    st.rerun()
+                st.write("")
+        else:
+            st.markdown("""
+            <div class="hud-panel" style="text-align: center; border: 1px dashed rgba(0, 240, 255, 0.3);">
+                <p style="color: #00f0ff; margin:0; font-size: 13px; font-weight: 700;" class="mono-text">✓ NO ACTIVE RESCUE BEACONS</p>
+                <p style="color: #64748b; font-size: 11px; margin: 4px 0 0 0;" class="mono-text">Live Socket listening for distress transmissions...</p>
             </div>
             """, unsafe_allow_html=True)
 
-            if st.button(f"🎯 LOCATE ON RADAR (#{len(sos_list)-idx:02d})", key=f"q_{idx}_{u_lat}", use_container_width=True):
-                st.session_state["focused_coords"] = (u_lat, u_lng)
-                st.session_state["focused_user"] = f"{user_name} - {place_name}"
-                st.rerun()
-            st.write("")
-    else:
-        st.markdown("""
-        <div class="hud-panel" style="text-align: center; border: 1px dashed rgba(0, 240, 255, 0.3);">
-            <p style="color: #00f0ff; margin:0; font-size: 13px; font-weight: 700;" class="mono-text">✓ NO ACTIVE RESCUE BEACONS</p>
-            <p style="color: #64748b; font-size: 11px; margin: 4px 0 0 0;" class="mono-text">Listening for emergency distress signals...</p>
-        </div>
-        """, unsafe_allow_html=True)
+# Run the live feed
+render_live_command_feed()
