@@ -1,117 +1,110 @@
-# citizen_app.py - High-Accuracy Direct Hardware GPS Citizen SOS
+# citizen_app.py - ResQ-Grid Citizen SOS (With Offline SMS Fallback)
 import streamlit as st
 import requests
 from streamlit_js_eval import get_geolocation
 
 st.set_page_config(
-    page_title="ResQ-Grid SOS", 
-    page_icon="🚨", 
+    page_title="ResQ-Grid Citizen SOS",
+    page_icon="🚨",
     layout="centered"
 )
 
-# Emergency Styling
+API_BASE_URL = "https://resqgrid-api.onrender.com"
+EMERGENCY_DESK_PHONE = "+91112"  # లేదా మీ NDRF / కంట్రోల్ రూమ్ ఎమర్జెన్సీ నంబర్
+
 st.markdown("""
 <style>
-    .stApp { background-color: #060913; color: #ffffff; }
-    .stButton>button {
-        background: radial-gradient(circle, #ff003c 0%, #8b0000 100%) !important;
-        border: 3px solid #ff4d6d !important;
-        color: white !important;
-        font-size: 22px !important;
-        font-weight: 800 !important;
-        padding: 18px !important;
-        border-radius: 12px !important;
-        box-shadow: 0 0 30px rgba(255, 0, 60, 0.8) !important;
-        text-transform: uppercase;
-        width: 100%;
-        margin-top: 10px;
+    .stApp {
+        background-color: #030712;
+        color: #f1f5f9;
+        font-family: sans-serif;
     }
-    .gps-card {
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid #00f0ff;
+    .offline-box {
+        background: rgba(255, 0, 85, 0.15);
+        border: 1px solid #ff0055;
         border-radius: 8px;
-        padding: 14px;
-        margin-bottom: 15px;
+        padding: 15px;
+        margin-top: 15px;
+        text-align: center;
+    }
+    .sms-btn {
+        display: inline-block;
+        width: 100%;
+        background: linear-gradient(90deg, #d90429 0%, #8d0801 100%);
+        color: #ffffff !important;
+        font-weight: bold;
+        text-decoration: none;
+        padding: 14px 20px;
+        border-radius: 6px;
+        border: 1px solid #ff0055;
+        box-shadow: 0 0 15px rgba(255, 0, 85, 0.4);
+        text-align: center;
+        margin-top: 10px;
+        font-size: 16px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚨 ResQ-Grid : 1-Tap SOS")
-st.caption("ఆపద సమయంలో తక్షణ సహాయం కోసం బటన్ నొక్కండి")
+st.title("🚨 RESQ-GRID // CITIZEN SOS")
+st.caption("EMERGENCY DISTRESS BEACON — TRIBAL & URBAN LIFELINE")
 
-# 1. Reverse Geocoding Helper
-@st.cache_data(ttl=300)
-def resolve_current_address(lat: float, lon: float) -> str:
-    url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json"
-    headers = {"User-Agent": "ResQGrid-CitizenLocator"}
-    try:
-        r = requests.get(url, headers=headers, timeout=5).json()
-        addr = r.get("address", {})
-        suburb = addr.get("suburb") or addr.get("neighbourhood") or addr.get("residential") or addr.get("road")
-        city = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("county")
-        state = addr.get("state", "")
-        parts = [p for p in [suburb, city, state] if p]
-        if parts:
-            return ", ".join(parts)
-        return r.get("display_name", f"{lat}, {lon}")
-    except Exception:
-        return f"Sector GPS: {lat:.4f}, {lon:.4f}"
-
-# 2. Direct Mobile Hardware GPS Call
-# ఇది ఫోన్ లోని అసలైన సెన్సార్ పర్మిషన్ అడుగుతుంది
+# 1. Hardware GPS Detection
 loc = get_geolocation()
-
-gps_ready = False
-final_lat = 0.0
-final_lng = 0.0
+lat, lng, acc = 0.0, 0.0, 0.0
 
 if loc and "coords" in loc:
-    final_lat = float(loc["coords"]["latitude"])
-    final_lng = float(loc["coords"]["longitude"])
-    acc = round(loc["coords"].get("accuracy", 5))
-    gps_ready = True
-    
-    place_name = resolve_current_address(final_lat, final_lng)
-    
-    st.markdown(f"""
-    <div class="gps-card">
-        <div style="color: #00f0ff; font-weight: bold; font-size: 13px;">📍 లైవ్ లొకేషన్ గుర్తించబడింది (AUTO-LOCKED):</div>
-        <div style="font-size: 18px; font-weight: 800; color: #ffffff; margin-top: 4px;">{place_name}</div>
-        <div style="color: #94a3b8; font-size: 12px; margin-top: 4px;">
-            GPS: <code>{final_lat:.5f}, {final_lng:.5f}</code> | ఖచ్చితత్వం: ±{acc} మీటర్లు
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    lat = loc["coords"]["latitude"]
+    lng = loc["coords"]["longitude"]
+    acc = loc["coords"].get("accuracy", 10.0)
+    st.success(f"📍 GPS LOCKED: `{lat:.5f}, {lng:.5f}` (±{acc:.1f}m accuracy)")
 else:
-    st.warning("📡 మీ మొబైల్ GPS కోసం చూస్తోంది... స్క్రీన్ పై **'Allow Location'** అని వస్తే అనుమతించండి.")
-    st.caption("చిట్కా: ఫోన్ లో Location ఆన్ ఉన్నా రాకపోతే, బ్రౌజర్ లో పేజీని ఒక్కసారి Refresh చేయండి.")
-
-# 3. Simple Form Inputs
-name = st.text_input("మీ పేరు (Name)", value="Citizen In Need")
-people = st.slider("ఎంతమంది చిక్కుకున్నారు? (Trapped Count)", min_value=1, max_value=25, value=2)
-medical = st.checkbox("🚑 అత్యవసర వైద్య సహాయం అవసరమా? (Urgent Medical)", value=True)
+    st.warning("⚠️ Accessing Satellite GPS... Please allow location permission on your device.")
 
 st.write("")
 
-# 4. Big Action Button
-if st.button("🚨 అత్యవసర సహాయం పంపండి (SEND SOS) 🚨"):
-    if not gps_ready:
-        st.error("⚠️ మీ GPS ఇంకా లాక్ అవ్వలేదు. దయచేసి 2 సెకన్లు ఆగి లొకేషన్ పర్మిషన్ ఇవ్వండి.")
+# 2. Triage Input
+user_name = st.text_input("Your Name / Hamlet Name (గ్రామం పేరు)", value="Citizen")
+people = st.slider("Total People Trapped (రక్షించాల్సిన వ్యక్తుల సంఖ్య)", 1, 25, 4)
+is_medical = st.checkbox("🚨 Critical Medical Emergency / Urgent Trauma (అత్యవసర వైద్యం అవసరం)")
+
+st.write("---")
+
+# 3. Mode A: Online Internet Transmission (Cloud API)
+if st.button("⚡ TRANSMIT SOS VIA CLOUD (ఇంటర్నెట్ ఉన్నప్పుడు)", use_container_width=True):
+    if lat == 0.0 and lng == 0.0:
+        st.error("GPS coordinates not acquired yet. Please wait for satellite fix.")
     else:
         payload = {
-            "user_name": name,
-            "latitude": final_lat,
-            "longitude": final_lng,
+            "user_name": user_name,
+            "latitude": lat,
+            "longitude": lng,
             "people_count": people,
-            "medical_emergency": medical
+            "medical_emergency": is_medical
         }
-        with st.spinner("NDRF కి మీ ఖచ్చితమైన లొకేషన్ పంపుతున్నాము..."):
-            try:
-                res = requests.post("https://resqgrid-api.onrender.com/send-sos", json=payload, timeout=35)
-                if res.status_code == 200:
-                    st.success(f"✅ మీ లొకేషన్ ({place_name}) NDRF వార్-రూమ్‌కు చేరింది!")
-                    st.balloons()
-                else:
-                    st.error(f"సర్వర్ లోపం: {res.status_code}")
-            except Exception as e:
-                st.error(f"నెట్‌వర్క్ సమస్య: {e}")
+        try:
+            res = requests.post(f"{API_BASE_URL}/send-sos", json=payload, timeout=5)
+            if res.status_code in [200, 201]:
+                st.success("✅ SOS BEACON TRANSMITTED TO COMMAND CENTER RADAR!")
+                st.balloons()
+            else:
+                st.error("Server responded with error. Use Offline SMS below.")
+        except Exception:
+            st.error("❌ Cloud Network Failed (No Internet). Use Offline SMS below immediately!")
+
+# 4. Mode B: Zero-Network Offline SMS Fallback (టవర్లు / ఇంటర్నెట్ లేనప్పుడు)
+sms_body = f"SOS#RESQGRID#LOC:{lat:.5f},{lng:.5f}#NAME:{user_name}#P:{people}#MED:{1 if is_medical else 0}"
+sms_uri = f"sms:{EMERGENCY_DESK_PHONE}?body={sms_body}"
+
+st.markdown(f"""
+<div class="offline-box">
+    <div style="font-weight: bold; font-size: 15px; color: #ff0055;">
+        📶 ZERO-INTERNET / TRIBAL EMERGENCY FALLBACK
+    </div>
+    <div style="font-size: 13px; color: #cbd5e1; margin-top: 5px;">
+        4G లేదా డేటా నెట్‌వర్క్ పనిచేయకపోతే, ఈ క్రింది బటన్ నొక్కండి. ఇది మీ ఫోన్ మెసేజ్ యాప్‌ను ఓపెన్ చేసి శాటిలైట్ కోఆర్డినేట్స్‌ను కంట్రోల్ రూమ్‌కు SMS ద్వారా పంపుతుంది.
+    </div>
+    <a class="sms-btn" href="{sms_uri}">
+        📩 SEND OFFLINE SOS VIA SMS
+    </a>
+</div>
+""", unsafe_allow_html=True)
