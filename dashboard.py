@@ -1,10 +1,9 @@
-# dashboard.py - ResQ-Grid Command Interface (Cyber Shield Theme + Tribal Agency Surveillance + Full Priority Sync)
+# dashboard.py - ResQ-Grid Command Interface (Cyber Shield Theme + Full SMS Gateway & Agency Watch)
 import streamlit as st
 import folium
 import requests
 import streamlit.components.v1 as components
 
-# 1. Page Configuration
 st.set_page_config(
     page_title="ResQ-Grid | Disaster Management System",
     page_icon="🛡️",
@@ -14,7 +13,7 @@ st.set_page_config(
 
 API_BASE_URL = "https://resqgrid-api.onrender.com"
 
-# Pre-mapped Tribal Agency Sectors (Zero-Network Vulnerable Belts)
+# Pre-mapped Tribal Agency Sectors
 TRIBAL_ZONES = {
     "Rampachodavaram Agency (Alluri District)": {"lat": 17.4475, "lng": 81.7774, "danger_threshold": 100.0},
     "Araku Valley Agency (Visakhapatnam)": {"lat": 18.3273, "lng": 82.8775, "danger_threshold": 95.0},
@@ -31,7 +30,7 @@ if "last_search" not in st.session_state:
 if "prev_alert_count" not in st.session_state:
     st.session_state["prev_alert_count"] = 0
 
-# 2. Cyber Shield Defense Styling (Zero Visual Breakage)
+# Cyber Shield Defense UI Styling
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -142,7 +141,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Helpers: Nominatim Search, Reverse Geocoding & Weather Telemetry
+# Helper Functions
 @st.cache_data(ttl=3600)
 def get_coordinates(query: str):
     url = f"https://nominatim.openstreetmap.org/search?q={query},India&format=json&limit=1"
@@ -188,7 +187,7 @@ def fetch_satellite_rain(lat: float, lon: float):
     except Exception:
         return 0.0
 
-# Fetch Live SOS Alerts for Initial Map Load
+# Fetch Active SOS Signals
 sos_list = []
 try:
     sos_res = requests.get(f"{API_BASE_URL}/all-sos", timeout=4).json()
@@ -196,17 +195,17 @@ try:
 except Exception:
     pass
 
-# 4. Top Operations Header
+# Header Section
 st.markdown("""
 <div class="hud-panel" style="margin-bottom: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
             <div style="display:flex; align-items:center;">
                 <span class="pulse-dot"></span>
-                <span style="font-family: 'Share Tech Mono', monospace; color: #ff0055; font-size: 12px; letter-spacing: 2px;">HYBRID TRIBAL & URBAN DISASTER SHIELD ACTIVE</span>
+                <span style="font-family: 'Share Tech Mono', monospace; color: #ff0055; font-size: 12px; letter-spacing: 2px;">TACTICAL DISASTER DEFENSE MATRIX ACTIVE</span>
             </div>
             <h1 style="margin: 2px 0 0 0; font-size: 28px; font-weight: 800; letter-spacing: 1px; color: #f8fafc; text-shadow: 0 0 15px rgba(0, 212, 255, 0.4);">
-                RESQ-GRID <span style="color: #00d4ff;">COMMAND MATRIX</span>
+                RESQ-GRID <span style="color: #00d4ff;">COMMAND SYSTEM</span>
             </h1>
             <p style="margin: 0; color: #64748b; font-size: 13px;" class="mono-text">
                 NDRF Integrated Early Warning Flood Detection & Automated Tribal Surveillance
@@ -220,7 +219,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 5. Clear Overview Metrics
+# Top Metrics Row
 k1, k2, k3, k4 = st.columns(4)
 total_trapped = sum(item.get("people", 0) for item in sos_list)
 critical_cases = sum(1 for item in sos_list if item.get("medical_urgent", False))
@@ -236,7 +235,7 @@ with k4:
 
 st.write("")
 
-# 6. Sidebar Controls
+# Sidebar Controls
 st.sidebar.markdown("### 📍 SELECT LOCATION")
 search_area = st.sidebar.text_input("Search City / Town", value=st.session_state["last_search"])
 
@@ -249,7 +248,6 @@ target = get_coordinates(search_area)
 st.sidebar.caption(f"Area: `{target['name']}` | GPS: `{target['lat']:.4f}, {target['lng']:.4f}`")
 st.sidebar.markdown("---")
 
-# Weather Data Selection
 st.sidebar.markdown("### ⚙️ WEATHER DATA SOURCE")
 data_mode = st.sidebar.radio(
     "Choose Mode",
@@ -262,7 +260,6 @@ if data_mode == "🛰️ Automatic (Live Satellite)":
     rain_val = live_rain
     water_lvl = 6.2
     elev_val = 15.0
-    st.sidebar.caption("River Level: Estimated from local sensors (~6.2m)")
 else:
     rain_val = st.sidebar.slider("Rainfall (24h in mm)", 0.0, 300.0, 140.0)
     water_lvl = st.sidebar.slider("Flood Water Level (in meters)", 0.0, 15.0, 7.5)
@@ -297,16 +294,21 @@ if st.sidebar.button("⚡ CHECK FLOOD RISK (AI)", use_container_width=True):
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🌲 TRIBAL AGENCY WATCH")
 agency_choice = st.sidebar.selectbox("Zero-Network Agency Sector", list(TRIBAL_ZONES.keys()))
-if st.sidebar.button("🛰️ SCAN AGENCY SATELITE HAZARD", use_container_width=True):
+if st.sidebar.button("🛰️ SCAN AGENCY RADAR SECTOR", use_container_width=True):
     z_coords = TRIBAL_ZONES[agency_choice]
     st.session_state["focused_coords"] = (z_coords["lat"], z_coords["lng"])
     st.session_state["focused_user"] = f"AGENCY HAZARD SECTOR ({agency_choice.split()[0]})"
     st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🚨 TEST OFFLINE / SMS SOS INGESTION")
-raw_sms = st.sidebar.text_input("Simulate Inbound SMS String", value="SOS#LOC:17.4475,81.7774#NAME:Gudem-Hamlet#P:8#MED:1")
-if st.sidebar.button("Process GSM/SMS Packet", use_container_width=True):
+st.sidebar.markdown("### 🚨 OFFLINE SMS GATEWAY INGESTION")
+sender_mobile = st.sidebar.text_input("Sender Mobile / Source Number", value="+919876543210")
+raw_sms = st.sidebar.text_input(
+    "Received Inbound SMS String", 
+    value="SOS#RESQGRID#LOC:17.4475,81.7774#NAME:Rampa-Gudem#P:6#MED:1#TO:+91112"
+)
+
+if st.sidebar.button("📥 INGEST OFFLINE SMS INTO RADAR", use_container_width=True):
     try:
         parts = raw_sms.split("#")
         s_loc = [p for p in parts if p.startswith("LOC:")][0].replace("LOC:", "").split(",")
@@ -314,23 +316,28 @@ if st.sidebar.button("Process GSM/SMS Packet", use_container_width=True):
         s_p = int([p for p in parts if p.startswith("P:")][0].replace("P:", ""))
         s_med = bool(int([p for p in parts if p.startswith("MED:")][0].replace("MED:", "")))
 
+        display_user = f"[SMS:{sender_mobile}] {s_name}"
+
         mock = {
-            "user_name": f"[SMS] {s_name}",
+            "user_name": display_user,
             "latitude": float(s_loc[0]),
             "longitude": float(s_loc[1]),
             "people_count": s_p,
             "medical_emergency": s_med
         }
-        requests.post(f"{API_BASE_URL}/send-sos", json=mock, timeout=10)
-        st.sidebar.success("Inbound SMS Ingested to Command Radar!")
-        st.rerun()
-    except Exception:
-        st.sidebar.error("Invalid SMS syntax format.")
+        res = requests.post(f"{API_BASE_URL}/send-sos", json=mock, timeout=10)
+        if res.status_code in [200, 201]:
+            st.sidebar.success(f"SMS from {sender_mobile} successfully plotted on Radar!")
+            st.rerun()
+        else:
+            st.sidebar.error("Failed to push to Cloud API.")
+    except Exception as e:
+        st.sidebar.error(f"Error parsing SMS format: {e}")
 
-# 7. Main Split Layout
+# Split Layout
 col_radar, col_queue = st.columns([7, 4])
 
-# ------------ MAP SECTION ------------
+# Map Section
 with col_radar:
     if st.session_state["focused_coords"]:
         map_lat, map_lng = st.session_state["focused_coords"]
@@ -366,7 +373,7 @@ with col_radar:
         tooltip=f"Danger Perimeter: {target['name'] if not st.session_state['focused_coords'] else 'Active Incident'}"
     ).add_to(radar_map)
 
-    # Plot all Pre-mapped Tribal Agency Perimeter Zones
+    # Plot Pre-mapped Tribal Agency Perimeter Zones
     for t_name, t_meta in TRIBAL_ZONES.items():
         folium.CircleMarker(
             location=[t_meta["lat"], t_meta["lng"]],
@@ -379,7 +386,7 @@ with col_radar:
             tooltip=f"🌲 Tribal Agency Sector: {t_name}"
         ).add_to(radar_map)
 
-    # Plot all SOS beacons
+    # Plot Active SOS Beacons
     for item in sos_list:
         loc = [item["location"]["lat"], item["location"]["lng"]]
         user = item.get("user", "Unknown")
@@ -405,10 +412,9 @@ with col_radar:
             fill_opacity=0.55 if is_focused else 0.35
         ).add_to(radar_map)
 
-    # Perfect height allocation without bottom gap
     components.html(radar_map._repr_html_(), height=500)
 
-# ------------ LIVE QUEUE ------------
+# Live Alert Queue Section
 with col_queue:
     st.markdown("#### 🚨 NDRF LIVE RESCUE QUEUE")
 
