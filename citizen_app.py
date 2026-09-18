@@ -10,7 +10,7 @@ st.set_page_config(
 )
 
 API_BASE_URL = "https://resqgrid-api.onrender.com"
-EMERGENCY_DESK_PHONE = "+91112"  # లేదా మీ NDRF / కంట్రోల్ రూమ్ ఎమర్జెన్సీ నంబర్
+EMERGENCY_DESK_PHONE = "+918179334312"  # లేదా మీ NDRF / కంట్రోల్ రూమ్ ఎమర్జెన్సీ నంబర్
 
 st.markdown("""
 <style>
