@@ -30,7 +30,7 @@ if "last_search" not in st.session_state:
 if "prev_alert_count" not in st.session_state:
     st.session_state["prev_alert_count"] = 0
 
-# Cyber Shield Defense UI Styling (With Contrast Fix for Alert Boxes)
+# Cyber Shield Defense UI Styling
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -94,7 +94,7 @@ st.markdown("""
         border-radius: 50%; display: inline-block; animation: radarPulse 2s infinite; margin-right: 8px;
     }
 
-    /* Sidebar Base Styling */
+    /* Sidebar Styling */
     [data-testid="stSidebar"] {
         background: #040817 !important;
         border-right: 1px solid rgba(0, 212, 255, 0.35) !important;
@@ -112,27 +112,6 @@ st.markdown("""
         background-color: #09132b !important; color: #ffffff !important;
         border: 1px solid #00d4ff !important; font-weight: 700 !important;
         box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.2);
-    }
-
-    /* Dark Cyber Background for Success, Warning, Info, and Error Boxes in Sidebar */
-    [data-testid="stSidebar"] [data-testid="stAlert"] {
-        background-color: rgba(9, 19, 43, 0.95) !important;
-        border: 1px solid rgba(0, 212, 255, 0.4) !important;
-        border-radius: 6px;
-    }
-    [data-testid="stSidebar"] [data-testid="stAlert"] * {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        text-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
-    }
-    [data-testid="stSidebar"] [data-testid="stAlert"][kind="error"] {
-        border-color: #ff0055 !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stAlert"][kind="warning"] {
-        border-color: #f59e0b !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stAlert"][kind="success"] {
-        border-color: #10b981 !important;
     }
 
     .stButton>button {
@@ -270,6 +249,7 @@ target = get_coordinates(search_area)
 st.sidebar.caption(f"Area: `{target['name']}` | GPS: `{target['lat']:.4f}, {target['lng']:.4f}`")
 st.sidebar.markdown("---")
 
+# Weather Data Selection (Pure Cyber HUD Cards - No White Backgrounds)
 st.sidebar.markdown("### ⚙️ WEATHER DATA SOURCE")
 data_mode = st.sidebar.radio(
     "Choose Mode",
@@ -278,7 +258,12 @@ data_mode = st.sidebar.radio(
 
 if data_mode == "🛰️ Automatic (Live Satellite)":
     live_rain = fetch_satellite_rain(target["lat"], target["lng"])
-    st.sidebar.success(f"Live Rain (Past 24h): **{live_rain} mm**")
+    st.sidebar.markdown(f"""
+    <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 6px; padding: 10px; margin: 10px 0;">
+        <span style="color: #10b981; font-weight: bold; font-size: 13px;">🌧️ Live Rain (Past 24h):</span>
+        <span style="color: #ffffff; font-weight: 800; font-size: 15px; margin-left: 5px;">{live_rain} mm</span>
+    </div>
+    """, unsafe_allow_html=True)
     rain_val = live_rain
     water_lvl = 6.2
     elev_val = 15.0
@@ -301,17 +286,37 @@ if st.sidebar.button("⚡ CHECK FLOOD RISK (AI)", use_container_width=True):
         eval_data = r["result"]
         lvl = eval_data["level"]
         score = eval_data["risk_score"]
+        action_text = eval_data["action"]
         
         st.sidebar.markdown("#### 🛡️ AI RISK RESULT")
+        
         if lvl == "CRITICAL":
-            st.sidebar.error(f"THREAT LEVEL: {lvl} [Score: {score}]")
+            card_border = "#ff0055"
+            card_bg = "rgba(255, 0, 85, 0.18)"
         elif lvl == "ALERT":
-            st.sidebar.warning(f"THREAT LEVEL: {lvl} [Score: {score}]")
+            card_border = "#f59e0b"
+            card_bg = "rgba(245, 158, 11, 0.18)"
         else:
-            st.sidebar.success(f"THREAT LEVEL: {lvl} [Score: {score}]")
-        st.sidebar.info(eval_data["action"])
+            card_border = "#10b981"
+            card_bg = "rgba(16, 185, 129, 0.18)"
+            
+        st.sidebar.markdown(f"""
+        <div style="background: {card_bg}; border: 1px solid {card_border}; border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+            <div style="color: {card_border}; font-weight: 800; font-size: 14px; letter-spacing: 1px;">
+                THREAT LEVEL: {lvl} [Score: {score}]
+            </div>
+            <div style="color: #f1f5f9; font-size: 13px; margin-top: 6px; line-height: 1.4;">
+                {action_text}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
     except Exception:
-        st.sidebar.error("Cloud Backend Connection Error.")
+        st.sidebar.markdown("""
+        <div style="background: rgba(255, 0, 85, 0.2); border: 1px solid #ff0055; border-radius: 6px; padding: 10px;">
+            <span style="color: #ff0055; font-weight: bold;">❌ Cloud Backend Connection Error.</span>
+        </div>
+        """, unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🌲 TRIBAL AGENCY WATCH")
