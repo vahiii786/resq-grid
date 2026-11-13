@@ -30,7 +30,7 @@ if "last_search" not in st.session_state:
 if "prev_alert_count" not in st.session_state:
     st.session_state["prev_alert_count"] = 0
 
-# Cyber Shield Defense UI Styling
+# Cyber Shield Defense UI Styling (Sidebar Contrast Bug Fixed)
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -94,6 +94,7 @@ st.markdown("""
         border-radius: 50%; display: inline-block; animation: radarPulse 2s infinite; margin-right: 8px;
     }
 
+    /* Sidebar Base Styling */
     [data-testid="stSidebar"] {
         background: #040817 !important;
         border-right: 1px solid rgba(0, 212, 255, 0.35) !important;
@@ -111,6 +112,27 @@ st.markdown("""
         background-color: #09132b !important; color: #ffffff !important;
         border: 1px solid #00d4ff !important; font-weight: 700 !important;
         box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.2);
+    }
+
+    /* FIX: Force Dark Background on Sidebar Alerts (Success, Warning, Info, Error) */
+    [data-testid="stSidebar"] [data-testid="stAlert"] {
+        background-color: rgba(9, 19, 43, 0.95) !important;
+        border: 1px solid rgba(0, 212, 255, 0.4) !important;
+        border-radius: 6px;
+    }
+    [data-testid="stSidebar"] [data-testid="stAlert"] * {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        text-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
+    }
+    [data-testid="stSidebar"] [data-testid="stAlert"][kind="error"] {
+        border-color: #ff0055 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stAlert"][kind="warning"] {
+        border-color: #f59e0b !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stAlert"][kind="success"] {
+        border-color: #10b981 !important;
     }
 
     .stButton>button {
@@ -254,224 +276,4 @@ data_mode = st.sidebar.radio(
     ["🛰️ Automatic (Live Satellite)", "🎛️ Manual (Test Simulation)"]
 )
 
-if data_mode == "🛰️ Automatic (Live Satellite)":
-    live_rain = fetch_satellite_rain(target["lat"], target["lng"])
-    st.sidebar.success(f"Live Rain (Past 24h): **{live_rain} mm**")
-    rain_val = live_rain
-    water_lvl = 6.2
-    elev_val = 15.0
-else:
-    rain_val = st.sidebar.slider("Rainfall (24h in mm)", 0.0, 300.0, 140.0)
-    water_lvl = st.sidebar.slider("Flood Water Level (in meters)", 0.0, 15.0, 7.5)
-    elev_val = st.sidebar.number_input("Ground Height / Elevation (meters)", value=14.0)
-
-if st.sidebar.button("⚡ CHECK FLOOD RISK (AI)", use_container_width=True):
-    st.session_state["focused_coords"] = None
-    st.session_state["focused_user"] = None
-    payload = {
-        "area_name": target["name"],
-        "rainfall_mm": rain_val,
-        "river_level_m": water_lvl,
-        "elevation_m": elev_val
-    }
-    try:
-        r = requests.post(f"{API_BASE_URL}/check-risk", json=payload, timeout=10).json()
-        eval_data = r["result"]
-        lvl = eval_data["level"]
-        score = eval_data["risk_score"]
-        
-        st.sidebar.markdown("#### 🛡️ AI RISK RESULT")
-        if lvl == "CRITICAL":
-            st.sidebar.error(f"THREAT LEVEL: {lvl} [Score: {score}]")
-        elif lvl == "ALERT":
-            st.sidebar.warning(f"THREAT LEVEL: {lvl} [Score: {score}]")
-        else:
-            st.sidebar.success(f"THREAT LEVEL: {lvl} [Score: {score}]")
-        st.sidebar.info(eval_data["action"])
-    except Exception:
-        st.sidebar.error("Cloud Backend Connection Error.")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🌲 TRIBAL AGENCY WATCH")
-agency_choice = st.sidebar.selectbox("Zero-Network Agency Sector", list(TRIBAL_ZONES.keys()))
-if st.sidebar.button("🛰️ SCAN AGENCY RADAR SECTOR", use_container_width=True):
-    z_coords = TRIBAL_ZONES[agency_choice]
-    st.session_state["focused_coords"] = (z_coords["lat"], z_coords["lng"])
-    st.session_state["focused_user"] = f"AGENCY HAZARD SECTOR ({agency_choice.split()[0]})"
-    st.rerun()
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🚨 OFFLINE SMS GATEWAY INGESTION")
-sender_mobile = st.sidebar.text_input("Sender Mobile / Source Number", value="+919876543210")
-raw_sms = st.sidebar.text_input(
-    "Received Inbound SMS String", 
-    value="SOS#RESQGRID#LOC:17.4475,81.7774#NAME:Rampa-Gudem#P:6#MED:1#TO:+91112"
-)
-
-if st.sidebar.button("📥 INGEST OFFLINE SMS INTO RADAR", use_container_width=True):
-    try:
-        parts = raw_sms.split("#")
-        s_loc = [p for p in parts if p.startswith("LOC:")][0].replace("LOC:", "").split(",")
-        s_name = [p for p in parts if p.startswith("NAME:")][0].replace("NAME:", "")
-        s_p = int([p for p in parts if p.startswith("P:")][0].replace("P:", ""))
-        s_med = bool(int([p for p in parts if p.startswith("MED:")][0].replace("MED:", "")))
-
-        display_user = f"[SMS:{sender_mobile}] {s_name}"
-
-        mock = {
-            "user_name": display_user,
-            "latitude": float(s_loc[0]),
-            "longitude": float(s_loc[1]),
-            "people_count": s_p,
-            "medical_emergency": s_med
-        }
-        res = requests.post(f"{API_BASE_URL}/send-sos", json=mock, timeout=10)
-        if res.status_code in [200, 201]:
-            st.sidebar.success(f"SMS from {sender_mobile} successfully plotted on Radar!")
-            st.rerun()
-        else:
-            st.sidebar.error("Failed to push to Cloud API.")
-    except Exception as e:
-        st.sidebar.error(f"Error parsing SMS format: {e}")
-
-# Split Layout
-col_radar, col_queue = st.columns([7, 4])
-
-# Map Section
-with col_radar:
-    if st.session_state["focused_coords"]:
-        map_lat, map_lng = st.session_state["focused_coords"]
-        map_zoom = 17
-        st.markdown(f"#### 🎯 RADAR LOCKED ON: `{st.session_state['focused_user'].upper()}`", unsafe_allow_html=True)
-        if st.button("🔄 RESET RADAR VIEW (BACK TO CITY MAP)"):
-            st.session_state["focused_coords"] = None
-            st.session_state["focused_user"] = None
-            st.rerun()
-    else:
-        map_lat = target["lat"]
-        map_lng = target["lng"]
-        map_zoom = 13
-        st.markdown(f"#### 🗺️ LIVE FLOOD MAP — `{target['name'].upper()}`", unsafe_allow_html=True)
-
-    radar_map = folium.Map(
-        location=[map_lat, map_lng], 
-        zoom_start=map_zoom,
-        max_zoom=19,
-        tiles="OpenStreetMap",
-        width="100%",
-        height="100%"
-    )
-
-    folium.Circle(
-        location=[map_lat, map_lng],
-        radius=1500 if st.session_state["focused_coords"] else 3000,
-        color="#ff0055",
-        weight=2,
-        fill=True,
-        fill_color="#ff0055",
-        fill_opacity=0.15,
-        tooltip=f"Danger Perimeter: {target['name'] if not st.session_state['focused_coords'] else 'Active Incident'}"
-    ).add_to(radar_map)
-
-    # Plot Pre-mapped Tribal Agency Perimeter Zones
-    for t_name, t_meta in TRIBAL_ZONES.items():
-        folium.CircleMarker(
-            location=[t_meta["lat"], t_meta["lng"]],
-            radius=9,
-            color="#00d4ff",
-            weight=2,
-            fill=True,
-            fill_color="#040817",
-            fill_opacity=0.8,
-            tooltip=f"🌲 Tribal Agency Sector: {t_name}"
-        ).add_to(radar_map)
-
-    # Plot Active SOS Beacons
-    for item in sos_list:
-        loc = [item["location"]["lat"], item["location"]["lng"]]
-        user = item.get("user", "Unknown")
-        count = item.get("people", 1)
-        med = item.get("medical_urgent", False)
-        place_label = get_place_name(loc[0], loc[1])
-        is_focused = (st.session_state["focused_coords"] == (loc[0], loc[1]))
-        
-        folium.Marker(
-            location=loc,
-            tooltip=f"🚨 {user} — {place_label}",
-            popup=f"<b>{user}</b><br>📍 <b>Area:</b> {place_label}<br>👥 <b>Trapped:</b> {count}<br>🚑 <b>Urgent Medical:</b> {med}<br><code>GPS: {loc[0]:.5f}, {loc[1]:.5f}</code>",
-            icon=folium.Icon(color="red" if med else "orange", icon="warning-sign" if med else "user")
-        ).add_to(radar_map)
-        
-        folium.CircleMarker(
-            location=loc,
-            radius=22 if is_focused else 14,
-            color="#00d4ff" if is_focused else "#ff0055",
-            weight=4 if is_focused else 2,
-            fill=True,
-            fill_color="#00d4ff" if is_focused else "#ff0055",
-            fill_opacity=0.55 if is_focused else 0.35
-        ).add_to(radar_map)
-
-    components.html(radar_map._repr_html_(), height=500)
-
-# Live Alert Queue Section
-with col_queue:
-    st.markdown("#### 🚨 NDRF LIVE RESCUE QUEUE")
-
-    if st.button("🔄 REFRESH ALERTS", use_container_width=True):
-        st.rerun()
-
-    @st.fragment(run_every=2)
-    def render_silent_live_queue():
-        live_list = []
-        try:
-            r = requests.get(f"{API_BASE_URL}/all-sos", timeout=3).json()
-            live_list = r.get("active_emergencies", [])
-        except Exception:
-            live_list = []
-
-        curr_count = len(live_list)
-        if curr_count > st.session_state["prev_alert_count"] and st.session_state["prev_alert_count"] > 0:
-            latest = live_list[-1]
-            latest_place = get_place_name(latest['location']['lat'], latest['location']['lng'])
-            st.toast(f"🚨 NEW DISTRESS SIGNAL! {latest.get('user', 'Citizen')} ({latest_place})", icon="⚠️")
-        st.session_state["prev_alert_count"] = curr_count
-
-        if live_list:
-            for idx, alert in enumerate(reversed(live_list)):
-                urgent_badge = "<span style='color:#ff0055; font-weight:bold;'>[URGENT: MEDICAL HELP NEEDED]</span>" if alert.get("medical_urgent") else "<span style='color:#00d4ff;'>[STANDARD RESCUE]</span>"
-                u_lat = alert['location']['lat']
-                u_lng = alert['location']['lng']
-                user_name = alert.get('user', 'Citizen')
-                place_name = get_place_name(u_lat, u_lng)
-                
-                st.markdown(f"""
-                <div class="hud-panel" style="margin-bottom: 8px; border-left: 3px solid #ff0055; padding: 12px;">
-                    <div style="font-weight: bold; font-size: 15px; color: #f8fafc;" class="mono-text">
-                        ALERT #{len(live_list)-idx:02d} : {user_name}
-                    </div>
-                    <div style="font-size: 13px; color: #00d4ff; font-weight: bold; margin: 2px 0;">
-                        📍 {place_name}
-                    </div>
-                    <div style="font-size: 12px; margin: 2px 0;" class="mono-text">{urgent_badge}</div>
-                    <div style="font-size: 13px; color: #94a3b8;" class="mono-text">
-                        People: <b style="color:#f8fafc;">{alert.get('people')}</b> | GPS: <code>{u_lat:.5f}, {u_lng:.5f}</code>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                if st.button(f"🎯 LOCATE ON RADAR (#{len(live_list)-idx:02d})", key=f"focus_btn_{idx}_{u_lat}", use_container_width=True):
-                    st.session_state["focused_coords"] = (u_lat, u_lng)
-                    st.session_state["focused_user"] = f"{user_name} ({place_name})"
-                    st.rerun()
-                    
-                st.write("")
-        else:
-            st.markdown("""
-            <div class="hud-panel" style="text-align: center; border: 1px dashed rgba(0, 212, 255, 0.4);">
-                <p style="color: #00d4ff; margin:0; font-size: 14px; font-weight: 700;" class="mono-text">✓ NO ACTIVE RESCUE REQUESTS</p>
-                <p style="color: #64748b; font-size: 12px; margin: 4px 0 0 0;" class="mono-text">All areas are currently normal and safe.</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-    render_silent_live_queue()
+if data_mode == "🛰️ Automatic (Live
